@@ -54,9 +54,15 @@ uv run "/path/to/idapro-9.3/idalib/python/py-activate-idalib.py"
 To install the latest IDA Pro MCP in Claude Code:
 
 ```bash
-claude plugin marketplace add mrexodia/claude-marketplace
-claude plugin uninstall ida-pro-mcp@mrexodia
-claude plugin install ida-pro-mcp@mrexodia
+claude plugin marketplace add NtTilt/claude-marketplace
+claude plugin install ida-pro-mcp@nttilt
+```
+
+To update an existing installation:
+
+```bash
+claude plugin marketplace update nttilt
+claude plugin update ida-pro-mcp@nttilt --scope user
 ```
 
 ## Installation (Codex)
@@ -64,10 +70,19 @@ claude plugin install ida-pro-mcp@mrexodia
 To install the latest IDA Pro MCP in Codex:
 
 ```bash
-codex plugin marketplace add mrexodia/codex-marketplace
-codex plugin remove ida-pro-mcp@mrexodia
-codex plugin add ida-pro-mcp@mrexodia
+codex plugin marketplace add NtTilt/codex-marketplace --json
+codex plugin add ida-pro-mcp@nttilt --json
 ```
+
+To update an existing installation:
+
+```bash
+codex plugin marketplace upgrade nttilt --json
+codex plugin add ida-pro-mcp@nttilt --json
+```
+
+Restart Claude Code or Codex after installing or updating so the new skill and
+MCP tool definitions are loaded.
 
 ## Installation (Kimi Code)
 

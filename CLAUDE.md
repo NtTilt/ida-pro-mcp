@@ -104,6 +104,17 @@ uv run ida-pro-mcp --install
 uv run ida-pro-mcp --uninstall
 ```
 
+### Update installed NtTilt plugins
+```bash
+codex plugin marketplace upgrade nttilt --json
+codex plugin add ida-pro-mcp@nttilt --json
+claude plugin marketplace update nttilt
+claude plugin update ida-pro-mcp@nttilt --scope user
+```
+
+Verify with `codex plugin list --json` and `claude plugin list --json`, then
+restart each client so updated skills and MCP tool definitions are loaded.
+
 ## Testing and coverage
 
 ### Run tests
