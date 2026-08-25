@@ -7,6 +7,12 @@ description: IDA Pro Python scripting for reverse engineering. Use when writing 
 
 Use modern `ida_*` modules. Avoid legacy `idc` module.
 
+## MSVC RTTI and Vtables
+
+For PE/MSVC RTTI work, read `docs/rtti.md` and use the native `rtti_*` MCP tools
+before manual IDAPython or external Class Informer output. The active IDB is the
+authoritative RTTI source for its own build.
+
 ## Module Router
 
 | Task | Module | Key Items |
@@ -143,6 +149,8 @@ ida_auto.auto_wait()  # Block until autoanalysis completes
 | Manual hex conversion | Use `int_convert` tool |
 | Blocking main thread | Use `execute_sync()` for long ops |
 | Guessing at types | Derive from disassembly/decompilation |
+| Requiring Class Informer for MSVC RTTI | Use `rtti_vtables` and related RTTI tools first |
+| Reusing another build's RTTI addresses | Derive RTTI from the active IDB |
 
 ## Detailed API Reference
 
@@ -150,5 +158,6 @@ For comprehensive documentation on any module, read `docs/<module>.md`:
 - **High-use**: `ida_bytes`, `ida_funcs`, `ida_hexrays`, `ida_typeinf`, `ida_name`, `idautils`
 - **Medium-use**: `ida_segment`, `ida_xref`, `ida_ua`, `ida_frame`, `ida_kernwin`
 - **Specialized**: `ida_dbg` (debugger), `ida_nalt` (netnode storage), `ida_regfinder` (register tracking)
+- **Workflow**: `rtti` (native MSVC RTTI and vtable MCP tools)
 
 Full RST sources from hex-rays.com available at `docs/<module>.rst`.
