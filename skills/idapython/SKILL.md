@@ -13,6 +13,11 @@ For PE/MSVC RTTI work, read `docs/rtti.md` and use the native `rtti_*` MCP tools
 before manual IDAPython or external Class Informer output. The active IDB is the
 authoritative RTTI source for its own build.
 
+## Cross-References
+
+For targeted read/write/reference analysis, read `docs/xrefs.md` and use
+`xref_query` filters before inspecting every referencing instruction.
+
 ## Module Router
 
 | Task | Module | Key Items |
@@ -168,5 +173,6 @@ For comprehensive documentation on any module, read `docs/<module>.md`:
 - **Medium-use**: `ida_segment`, `ida_xref`, `ida_ua`, `ida_frame`, `ida_kernwin`
 - **Specialized**: `ida_dbg` (debugger), `ida_nalt` (netnode storage), `ida_regfinder` (register tracking)
 - **Workflow**: `rtti` (native MSVC RTTI and vtable MCP tools)
+- **Workflow**: `xrefs` (filtered and prioritized cross-reference analysis)
 
 Full RST sources from hex-rays.com available at `docs/<module>.rst`.

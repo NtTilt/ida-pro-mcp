@@ -338,7 +338,7 @@ def test_trace_data_flow_nodes_structure():
 
 @test()
 def test_trace_data_flow_edges_structure():
-    """trace_data_flow edges have from/to/type."""
+    """trace_data_flow edges expose broad and detailed xref metadata."""
     fn_addr = get_any_function()
     if not fn_addr:
         skip_test("binary has no functions")
@@ -350,7 +350,7 @@ def test_trace_data_flow_edges_structure():
     edges = result["edges"]
     assert isinstance(edges, list)
     for edge in edges:
-        assert_has_keys(edge, "from", "to", "type")
+        assert_has_keys(edge, "from", "to", "type", "kind", "type_code", "type_name")
         assert_valid_address(edge["from"])
         assert_valid_address(edge["to"])
 

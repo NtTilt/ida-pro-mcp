@@ -129,6 +129,11 @@ def test_utils_assembly_xrefs_and_comments_helpers():
     assert "g_numbers" in asm
 
     xrefs = get_all_xrefs(0x1013DC0)
+    for direction in ("to", "from"):
+        assert all(
+            {"type", "kind", "type_code", "type_name"}.issubset(item)
+            for item in xrefs[direction]
+        )
     assert any(item["addr"] == "0x1013f1b" for item in xrefs["to"])
 
     comments = get_all_comments(0x1013DC0)

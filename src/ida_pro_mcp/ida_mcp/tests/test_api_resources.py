@@ -170,6 +170,7 @@ def test_resource_export_name():
 def test_resource_xrefs_from():
     """xrefs_from_resource returns the known outgoing references from the check_pw call site."""
     result = xrefs_from_resource(CRACKME_CALL_TO_CHECK_PW)
+    assert all({"type", "kind", "type_code", "type_name"}.issubset(item) for item in result)
     assert_is_list(result, min_length=1)
     by_addr = {entry["addr"]: entry["type"] for entry in result}
     assert by_addr.get(CRACKME_CHECK_PW) == "code"

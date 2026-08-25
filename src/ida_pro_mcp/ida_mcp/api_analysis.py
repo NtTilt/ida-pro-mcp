@@ -42,6 +42,10 @@ from .utils import (
     BasicBlock,
     StructFieldQuery,
     XrefQuery,
+    XREF_FILTERS,
+    XREF_KIND_PRIORITY,
+    classify_xref,
+    xref_matches,
     InsnPattern,
     FuncProfileQuery,
     AnalyzeBatchQuery,
@@ -110,8 +114,8 @@ class AnalyzeBatchDisasm(TypedDict):
 AnalyzeBatchXrefs = TypedDict(
     "AnalyzeBatchXrefs",
     {
-        "to": list[dict[str, str]],
-        "from": list[dict[str, str]],
+        "to": list[Xref],
+        "from": list[Xref],
         "to_truncated": bool,
         "from_truncated": bool,
         "to_count": int,
@@ -169,6 +173,9 @@ XrefQueryRow = TypedDict(
         "from": str,
         "to": str,
         "type": str,
+        "kind": str,
+        "type_code": int,
+        "type_name": str,
         "fn": Function | None,
     },
     total=False,
@@ -180,6 +187,7 @@ class XrefQueryResult(TypedDict, total=False):
     resolved_addr: str | None
     direction: str
     xref_type: str
+    xref_types: list[str]
     data: list[XrefQueryRow]
     next_offset: int | None
     total: int
@@ -1266,7 +1274,7 @@ def xrefs_to(
                 xrefs.append(
                     Xref(
                         addr=hex(xref.frm),
-                        type="code" if xref.iscode else "data",
+                        **classify_xref(xref.type, xref.iscode),
                         fn=get_function(xref.frm, raise_error=False),
                     )
                 )
@@ -1293,7 +1301,7 @@ def xref_query(
         "Generic xref query with direction/type filters and pagination",
     ],
 ) -> list[XrefQueryResult]:
-    """Query xrefs with direction/type filters and pagination."""
+    """Query xrefs with broad/detailed type filters, priority sorting, and pagination."""
     queries = normalize_dict_list(queries)
 
     results: list[dict] = []
@@ -1301,21 +1309,35 @@ def xref_query(
         q = str(query.get("addr", "")).strip()
         direction = str(query.get("direction", "both") or "both").lower()
         xref_type = str(query.get("xref_type", "any") or "any").lower()
+        requested_types = query.get("xref_types", []) or []
         offset = _clamp_int(query.get("offset", 0), 0, 0, 2_000_000_000)
         count = _clamp_int(query.get("count", 200), 200, 0, 5000)
         include_fn = bool(query.get("include_fn", True))
         dedup = bool(query.get("dedup", True))
         sort_by = str(query.get("sort_by", "addr") or "addr")
         descending = bool(query.get("descending", False))
-
-        if direction not in {"to", "from", "both"}:
-            direction = "both"
-        if xref_type not in {"any", "code", "data"}:
-            xref_type = "any"
+        filters: set[str] = set()
 
         try:
             if not q:
                 raise ValueError("addr is required")
+            if direction not in {"to", "from", "both"}:
+                direction = "both"
+            if not isinstance(requested_types, list):
+                raise ValueError("xref_types must be a list")
+            filters = {xref_type, *(str(item).lower() for item in requested_types)}
+            invalid_filters = sorted(filters - XREF_FILTERS)
+            if invalid_filters:
+                raise ValueError(
+                    "Unknown xref type(s): "
+                    + ", ".join(invalid_filters)
+                    + "; expected any, code, data, read, write, offset, text, "
+                    "informational, call, jump, flow, or other"
+                )
+            if "any" in filters and len(filters) > 1:
+                filters.remove("any")
+            if sort_by not in {"addr", "type", "kind"}:
+                sort_by = "addr"
             try:
                 target = parse_address(q)
             except Exception:
@@ -1329,15 +1351,15 @@ def xref_query(
             rows: list[dict] = []
             if direction in {"to", "both"}:
                 for xr in idautils.XrefsTo(target, 0):
-                    kind = "code" if xr.iscode else "data"
-                    if xref_type != "any" and kind != xref_type:
+                    metadata = classify_xref(xr.type, xr.iscode)
+                    if not xref_matches(metadata, filters):
                         continue
                     row = {
                         "direction": "to",
                         "addr": hex(xr.frm),
                         "from": hex(xr.frm),
                         "to": hex(target),
-                        "type": kind,
+                        **metadata,
                     }
                     if include_fn:
                         row["fn"] = get_function(xr.frm, raise_error=False)
@@ -1345,15 +1367,15 @@ def xref_query(
 
             if direction in {"from", "both"}:
                 for xr in idautils.XrefsFrom(target, 0):
-                    kind = "code" if xr.iscode else "data"
-                    if xref_type != "any" and kind != xref_type:
+                    metadata = classify_xref(xr.type, xr.iscode)
+                    if not xref_matches(metadata, filters):
                         continue
                     row = {
                         "direction": "from",
                         "addr": hex(xr.to),
                         "from": hex(target),
                         "to": hex(xr.to),
-                        "type": kind,
+                        **metadata,
                     }
                     if include_fn:
                         row["fn"] = get_function(xr.to, raise_error=False)
@@ -1363,14 +1385,22 @@ def xref_query(
                 seen = set()
                 deduped = []
                 for row in rows:
-                    key = (row["direction"], row["from"], row["to"], row["type"])
+                    key = (row["direction"], row["from"], row["to"], row["type_code"])
                     if key in seen:
                         continue
                     seen.add(key)
                     deduped.append(row)
                 rows = deduped
 
-            if sort_by == "type":
+            if sort_by == "kind":
+                rows.sort(
+                    key=lambda r: (
+                        XREF_KIND_PRIORITY.get(str(r.get("kind", "other")), 99),
+                        int(str(r["addr"]), 16),
+                    ),
+                    reverse=descending,
+                )
+            elif sort_by == "type":
                 rows.sort(
                     key=lambda r: (str(r.get("type", "")), int(str(r["addr"]), 16)),
                     reverse=descending,
@@ -1384,6 +1414,7 @@ def xref_query(
                 "resolved_addr": hex(target),
                 "direction": direction,
                 "xref_type": xref_type,
+                "xref_types": sorted(filters),
                 "data": page["data"],
                 "next_offset": page["next_offset"],
                 "total": len(rows),
@@ -1399,6 +1430,7 @@ def xref_query(
                     "resolved_addr": None,
                     "direction": direction,
                     "xref_type": xref_type,
+                    "xref_types": sorted(filters),
                     "data": [],
                     "next_offset": None,
                     "total": 0,
@@ -1480,7 +1512,7 @@ def xrefs_to_field(
                 xrefs += [
                     Xref(
                         addr=hex(xref.frm),
-                        type="code" if xref.iscode else "data",
+                        **classify_xref(xref.type, xref.iscode),
                         fn=get_function(xref.frm, raise_error=False),
                     )
                 ]

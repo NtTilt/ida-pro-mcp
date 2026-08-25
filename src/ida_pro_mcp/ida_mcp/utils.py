@@ -24,6 +24,7 @@ import ida_hexrays
 import ida_kernwin
 import ida_nalt
 import ida_typeinf
+import ida_xref
 import idaapi
 import idautils
 import idc
@@ -169,12 +170,13 @@ class XrefQuery(TypedDict):
 
     addr: Annotated[str, "Address or name"]
     direction: NotRequired[Annotated[str, "to|from|both (default: both)"]]
-    xref_type: NotRequired[Annotated[str, "any|code|data (default: any)"]]
+    xref_type: NotRequired[Annotated[str, "any|code|data|read|write|offset|text|informational|call|jump|flow|other"]]
+    xref_types: NotRequired[Annotated[list[str], "Optional OR-list of broad or detailed xref types"]]
     offset: NotRequired[Annotated[int, "Start index (default: 0)"]]
     count: NotRequired[Annotated[int, "Max results (default: 200, max: 5000)"]]
     include_fn: NotRequired[Annotated[bool, "Include function metadata"]]
     dedup: NotRequired[Annotated[bool, "Deduplicate by addr/type"]]
-    sort_by: NotRequired[Annotated[str, "Sort: addr|type"]]
+    sort_by: NotRequired[Annotated[str, "Sort: addr|type|kind"]]
     descending: NotRequired[Annotated[bool, "Descending"]]
 
 
@@ -510,7 +512,78 @@ class DisassemblyFunction(TypedDict):
 class Xref(TypedDict):
     addr: str
     type: str
-    fn: Optional[Function]
+    kind: str
+    type_code: int
+    type_name: str
+    fn: NotRequired[Optional[Function]]
+
+
+XREF_FILTERS = frozenset(
+    {
+        "any",
+        "code",
+        "data",
+        "read",
+        "write",
+        "offset",
+        "text",
+        "informational",
+        "call",
+        "jump",
+        "flow",
+        "other",
+    }
+)
+
+XREF_KIND_PRIORITY = {
+    "write": 0,
+    "offset": 1,
+    "read": 2,
+    "text": 3,
+    "informational": 4,
+    "call": 5,
+    "jump": 6,
+    "flow": 7,
+    "other": 8,
+}
+
+_XREF_KIND_BY_CODE = {
+    ida_xref.dr_W: "write",
+    ida_xref.dr_O: "offset",
+    ida_xref.dr_R: "read",
+    ida_xref.dr_T: "text",
+    ida_xref.dr_I: "informational",
+    ida_xref.fl_CF: "call",
+    ida_xref.fl_CN: "call",
+    ida_xref.fl_JF: "jump",
+    ida_xref.fl_JN: "jump",
+    ida_xref.fl_F: "flow",
+}
+
+
+def classify_xref(type_code: int, iscode: bool | None = None) -> dict[str, str | int]:
+    """Return stable broad and detailed metadata for an IDA xref type."""
+    code = int(type_code)
+    kind = _XREF_KIND_BY_CODE.get(code, "other")
+    if iscode is None:
+        broad_type = "code" if kind in {"call", "jump", "flow"} else "data"
+    else:
+        broad_type = "code" if iscode else "data"
+    try:
+        type_name = idautils.XrefTypeName(code)
+    except Exception:
+        type_name = ""
+    return {
+        "type": broad_type,
+        "kind": kind,
+        "type_code": code,
+        "type_name": type_name or "Unknown",
+    }
+
+
+def xref_matches(metadata: dict[str, str | int], filters: set[str]) -> bool:
+    """Return whether broad or detailed xref metadata matches an OR-filter set."""
+    return "any" in filters or metadata["type"] in filters or metadata["kind"] in filters
 
 
 class StructureMember(TypedDict):
@@ -1208,11 +1281,11 @@ def get_all_xrefs(ea: int) -> dict:
     """Get all xrefs to and from an address"""
     return {
         "to": [
-            {"addr": hex(x.frm), "type": "code" if x.iscode else "data"}
+            {"addr": hex(x.frm), **classify_xref(x.type, x.iscode)}
             for x in idautils.XrefsTo(ea, 0)
         ],
         "from": [
-            {"addr": hex(x.to), "type": "code" if x.iscode else "data"}
+            {"addr": hex(x.to), **classify_xref(x.type, x.iscode)}
             for x in idautils.XrefsFrom(ea, 0)
         ],
     }
@@ -1312,7 +1385,7 @@ def get_xrefs_from_internal(ea: int) -> list[Xref]:
         xrefs.append(
             Xref(
                 addr=hex(xref.to),
-                type="code" if xref.iscode else "data",
+                **classify_xref(xref.type, xref.iscode),
                 fn=get_function(xref.to, raise_error=False),
             )
         )

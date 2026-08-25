@@ -21,6 +21,7 @@ from .utils import (
     decompile_function_safe,
     get_assembly_lines,
     normalize_list_input,
+    classify_xref,
 )
 
 # Max decompile lines before truncation.
@@ -635,13 +636,10 @@ def trace_data_flow(
             if len(edges) >= _MAX_TRACE_EDGES:
                 break
             target = xref.to if direction == "forward" else xref.frm
-            # Classify xref type.
-            xtype = "code" if xref.iscode else "data"
-
             edges.append({
                 "from": hex(ea) if direction == "forward" else hex(target),
                 "to": hex(target) if direction == "forward" else hex(ea),
-                "type": xtype,
+                **classify_xref(xref.type, xref.iscode),
             })
 
             if target not in visited and len(nodes) + len(queue) < _MAX_TRACE_NODES:

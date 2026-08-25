@@ -20,6 +20,7 @@ from .utils import (
     Segment,
     StructureDefinition,
     StructureMember,
+    classify_xref,
     get_image_size,
     parse_address,
 )
@@ -286,7 +287,7 @@ def xrefs_from_resource(addr: Annotated[str, "Source address"]) -> list[dict]:
         xrefs.append(
             {
                 "addr": hex(xref.to),
-                "type": "code" if xref.iscode else "data",
+                **classify_xref(xref.type, xref.iscode),
             }
         )
     return xrefs

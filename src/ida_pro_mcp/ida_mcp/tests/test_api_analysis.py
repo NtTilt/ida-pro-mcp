@@ -1,5 +1,8 @@
 """Tests for api_analysis API functions."""
 
+import ida_xref
+import idautils
+
 from ..framework import (
     test,
     skip_test,
@@ -16,6 +19,7 @@ from ..framework import (
     get_data_address,
     get_unmapped_address,
 )
+from ..utils import classify_xref
 from ..api_analysis import (
     decompile,
     disasm,
@@ -435,6 +439,28 @@ def test_xrefs_to_by_name():
     assert hit["fn"]["name"] == "main"
 
 
+@test(binary="crackme03.elf")
+def test_xref_query_call_and_code_filters():
+    """Detailed call and legacy broad code filters retain the known call xref."""
+    for filter_name in ("call", "code"):
+        page = xref_query(
+            {
+                "addr": CRACKME_CHECK_PW,
+                "direction": "to",
+                "xref_type": filter_name,
+                "count": 100,
+            }
+        )[0]
+        assert page["error"] is None
+        hit = next(
+            (row for row in page["data"] if row["addr"] == CRACKME_CALL_TO_CHECK_PW),
+            None,
+        )
+        assert hit is not None
+        assert hit["type"] == "code"
+        assert hit["kind"] == "call"
+
+
 @test()
 def test_xrefs_to_invalid():
     """xrefs_to reports an error for an unmapped address."""
@@ -501,7 +527,133 @@ def test_xref_query():
     page = result[0]
     assert_has_keys(page, "target", "resolved_addr", "data", "next_offset", "total", "error")
     if page["data"]:
-        assert_has_keys(page["data"][0], "direction", "addr", "from", "to", "type")
+        assert_has_keys(
+            page["data"][0],
+            "direction",
+            "addr",
+            "from",
+            "to",
+            "type",
+            "kind",
+            "type_code",
+            "type_name",
+        )
+
+
+@test()
+def test_xref_classification_covers_ida_reference_types():
+    """Raw IDA xref types map to stable broad and detailed classifications."""
+    expected = {
+        ida_xref.dr_W: ("data", "write"),
+        ida_xref.dr_O: ("data", "offset"),
+        ida_xref.dr_R: ("data", "read"),
+        ida_xref.dr_T: ("data", "text"),
+        ida_xref.dr_I: ("data", "informational"),
+        ida_xref.fl_CF: ("code", "call"),
+        ida_xref.fl_CN: ("code", "call"),
+        ida_xref.fl_JF: ("code", "jump"),
+        ida_xref.fl_JN: ("code", "jump"),
+        ida_xref.fl_F: ("code", "flow"),
+    }
+    for type_code, (broad_type, kind) in expected.items():
+        item = classify_xref(type_code)
+        assert item["type"] == broad_type
+        assert item["kind"] == kind
+        assert item["type_code"] == type_code
+        assert item["type_name"] != "Unknown"
+
+
+@test()
+def test_xref_query_detailed_filters_and_priority_sort():
+    """Detailed data filters apply before paging and kind sorting is write-first."""
+    target = int(get_data_address(), 16)
+    candidates = []
+    for func_ea in idautils.Functions():
+        for source in idautils.FuncItems(func_ea):
+            if all(xr.to != target for xr in idautils.XrefsFrom(source, 0)):
+                candidates.append(source)
+                if len(candidates) == 4:
+                    break
+        if len(candidates) == 4:
+            break
+    if len(candidates) < 4:
+        skip_test("could not find four source instructions for temporary xrefs")
+
+    added = []
+    kinds = [
+        (ida_xref.dr_R, "read"),
+        (ida_xref.dr_W, "write"),
+        (ida_xref.dr_O, "offset"),
+        (ida_xref.dr_W, "write"),
+    ]
+    try:
+        for source, (type_code, _) in zip(candidates, kinds):
+            if not ida_xref.add_dref(source, target, type_code):
+                skip_test("IDA refused a temporary data xref")
+            added.append(source)
+
+        result = xref_query(
+            {
+                "addr": hex(target),
+                "direction": "to",
+                "xref_types": ["read", "write", "offset"],
+                "sort_by": "kind",
+                "include_fn": False,
+                "offset": 0,
+                "count": 5000,
+            }
+        )[0]
+        assert result["error"] is None
+        assert result["total"] >= 4
+        priorities = {"write": 0, "offset": 1, "read": 2}
+        returned_kinds = [row["kind"] for row in result["data"]]
+        assert returned_kinds == sorted(returned_kinds, key=priorities.__getitem__)
+        inserted = [
+            row for row in result["data"] if row["addr"] in {hex(source) for source in candidates}
+        ]
+        assert [row["kind"] for row in inserted] == ["write", "write", "offset", "read"]
+        assert [int(row["addr"], 16) for row in inserted[:2]] == sorted(
+            int(row["addr"], 16) for row in inserted[:2]
+        )
+        assert {row["type"] for row in result["data"]} == {"data"}
+
+        first_page = xref_query(
+            {
+                "addr": hex(target),
+                "direction": "to",
+                "xref_types": ["read", "write", "offset"],
+                "sort_by": "kind",
+                "include_fn": False,
+                "count": 1,
+            }
+        )[0]
+        assert first_page["total"] == result["total"]
+        assert first_page["next_offset"] == 1
+        assert first_page["data"][0]["kind"] == "write"
+
+        broad_data = xref_query(
+            {"addr": hex(target), "direction": "to", "xref_type": "data", "count": 5000}
+        )[0]
+        assert broad_data["error"] is None
+        assert all(row["type"] == "data" for row in broad_data["data"])
+
+        writes = xref_query(
+            {"addr": hex(target), "direction": "to", "xref_type": "write", "count": 20}
+        )[0]
+        assert writes["error"] is None
+        assert writes["data"]
+        assert all(row["kind"] == "write" for row in writes["data"])
+        assert hex(candidates[1]) in {row["addr"] for row in writes["data"]}
+    finally:
+        for source in added:
+            ida_xref.del_dref(source, target)
+
+
+@test()
+def test_xref_query_rejects_unknown_filters():
+    """Invalid detailed filters fail clearly instead of silently becoming any."""
+    result = xref_query({"addr": get_any_function(), "xref_type": "execute"})[0]
+    assert_error(result, contains="Unknown xref type")
 
 
 @test()
