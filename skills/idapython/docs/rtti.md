@@ -5,7 +5,9 @@ analysis. Prefer them over manually recreating the RTTI parser with IDAPython.
 
 ## Workflow
 
-1. Call `rtti_vtables` with a class or subobject wildcard.
+1. Call `rtti_vtables` with an exact class or subobject name first. Use a
+   wildcard only for discovery. If the vtable address is already known, query
+   it directly with `rtti_vtable` and skip discovery.
 2. Call `rtti_vtable` on the unique result to retrieve hierarchy metadata,
    method count, and a paginated method list.
 3. Call `rtti_vtable_slot` when the desired zero-based slot is known.
@@ -59,3 +61,12 @@ without verifying them against the active IDB.
 If a query matches multiple vtables, refine the class/subobject wildcard or use
 the returned vtable address. For large classes, paginate methods rather than
 requesting the entire table at once.
+
+When comparing tables, fetch each required method range once and reuse it. Use
+`rtti_vtable_slot` for isolated slots instead of retrieving a complete table.
+Deduplicate target addresses before decompilation.
+
+Equal target addresses identify the same implementation within the active
+build, even when several slots share it. Different target addresses establish
+only a slot difference; call it an override only after hierarchy context and
+code or xref evidence rule out thunks, adjustments, and aliases.

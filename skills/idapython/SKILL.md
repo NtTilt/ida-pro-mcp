@@ -140,6 +140,15 @@ ida_auto.auto_wait()  # Block until autoanalysis completes
 3. **Thread safety**: IDA SDK calls must run on main thread (use `@idasync`)
 4. **64-bit addresses**: Always assume `ea_t` can be 64-bit
 
+## MCP Call Efficiency
+
+- Reuse successful tool results; do not repeat identical calls unless relevant
+  IDB state changed, the result was truncated, or a refresh is required.
+- Keep discovery proportional to the task. Skip broad binary surveys when the
+  active database and target are already established.
+- Request only the needed page or range, and save the IDB once after related
+  mutations are complete.
+
 ## Anti-Patterns
 
 | Avoid | Do Instead |
