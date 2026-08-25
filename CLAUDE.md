@@ -22,8 +22,15 @@ Important API modules:
 - `api_debug.py`: debugger control, unsafe / low priority for tests
 - `api_python.py`: execute Python in IDA context
 - `api_resources.py`: `ida://` MCP resources
+- `api_rtti.py`: MSVC RTTI, class hierarchies, vtables, and virtual slots
 
 ## Core implementation rules
+
+- Target shared `idalib-mcp` functionality; avoid new GUI-only features because the GUI plugin is deprecated upstream.
+- Keep changes additive, focused, and easy to rebase onto `upstream/main`.
+- Use modern `ida_*` modules instead of legacy `idc` APIs.
+- Assume addresses are 64-bit and wait for auto-analysis before reading results.
+- Preserve existing MCP tool names and schemas unless a breaking change is explicitly approved.
 
 ### IDA thread safety
 All IDA SDK calls must run on the main thread.
@@ -69,6 +76,14 @@ def dangerous_op(...):
 
 ## Development commands
 
+### Environment setup
+```powershell
+uv sync --frozen --group dev
+uv run "C:\Program Files\IDA Professional 9.0\idalib\python\py-activate-idalib.py"
+```
+
+The locked project environment uses Python 3.11.
+
 ### Run
 ```bash
 uv run ida-pro-mcp
@@ -102,8 +117,11 @@ uv run ida-mcp-test tests/typed_fixture.elf -p "*stack*"
 
 Notes:
 - Use `uv run ...`
+- Use `ida-mcp-test`, not plain `pytest`, so IDA is initialized correctly
 - Non-interactive output should show failures only plus a summary
 - Binary-specific tests should use `@test(binary="...")` with the executable basename
+- Both maintained fixture suites must pass before committing
+- Restore database state changed by tests
 
 ### Coverage
 Measure coverage across both maintained fixtures:
@@ -155,3 +173,10 @@ Lower priority:
 - IDA Pro 8.3+; 9.0 recommended
 - IDA Free is not supported
 - If IDA uses the wrong Python, use `idapyswitch`
+- Do not edit or replace the installed plugin under `%APPDATA%\Hex-Rays\IDA Pro\plugins` during development
+
+## Git workflow
+
+- `origin` is `NtTilt/ida-pro-mcp`; push feature branches there.
+- `upstream` is `mrexodia/ida-pro-mcp`; fetch from it and never push to it.
+- Develop on feature branches based on `dev/local-enhancements`; do not commit directly to `main`.
