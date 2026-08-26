@@ -54,15 +54,15 @@ uv run "/path/to/idapro-9.3/idalib/python/py-activate-idalib.py"
 To install the latest IDA Pro MCP in Claude Code:
 
 ```bash
-claude plugin marketplace add NtTilt/claude-marketplace
-claude plugin install ida-pro-mcp@nttilt
+claude plugin marketplace add Fl0sec/claude-marketplace
+claude plugin install ida-pro-mcp@fl0sec
 ```
 
 To update an existing installation:
 
 ```bash
-claude plugin marketplace update nttilt
-claude plugin update ida-pro-mcp@nttilt --scope user
+claude plugin marketplace update fl0sec
+claude plugin update ida-pro-mcp@fl0sec --scope user
 ```
 
 ## Installation (Codex)
@@ -70,15 +70,15 @@ claude plugin update ida-pro-mcp@nttilt --scope user
 To install the latest IDA Pro MCP in Codex:
 
 ```bash
-codex plugin marketplace add NtTilt/codex-marketplace --json
-codex plugin add ida-pro-mcp@nttilt --json
+codex plugin marketplace add Fl0sec/codex-marketplace --json
+codex plugin add ida-pro-mcp@fl0sec --json
 ```
 
 To update an existing installation:
 
 ```bash
-codex plugin marketplace upgrade nttilt --json
-codex plugin add ida-pro-mcp@nttilt --json
+codex plugin marketplace upgrade fl0sec --json
+codex plugin add ida-pro-mcp@fl0sec --json
 ```
 
 Restart Claude Code or Codex after installing or updating so the new skill and

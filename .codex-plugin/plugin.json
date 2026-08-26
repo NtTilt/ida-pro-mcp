@@ -3,11 +3,11 @@
   "version": "0.1.5",
   "description": "AI-powered reverse engineering assistant that bridges IDA Pro with language models through MCP.",
   "author": {
-    "name": "NtTilt",
-    "url": "https://github.com/NtTilt/ida-pro-mcp"
+    "name": "fl0sec",
+    "url": "https://github.com/Fl0sec/ida-pro-mcp"
   },
-  "homepage": "https://github.com/NtTilt/ida-pro-mcp",
-  "repository": "https://github.com/NtTilt/ida-pro-mcp.git",
+  "homepage": "https://github.com/Fl0sec/ida-pro-mcp",
+  "repository": "https://github.com/Fl0sec/ida-pro-mcp.git",
   "license": "MIT",
   "keywords": [
     "ida",
@@ -19,13 +19,13 @@
     "displayName": "IDA Pro MCP",
     "shortDescription": "AI-powered reverse engineering assistant that bridges IDA Pro with language models through MCP.",
     "longDescription": "AI-powered reverse engineering assistant that bridges IDA Pro with language models through MCP.",
-    "developerName": "NtTilt",
+    "developerName": "fl0sec",
     "category": "Developer Tools",
     "capabilities": [
       "Interactive",
       "MCP"
     ],
-    "websiteURL": "https://github.com/NtTilt/ida-pro-mcp"
+    "websiteURL": "https://github.com/Fl0sec/ida-pro-mcp"
   },
   "mcpServers": "./.codex-plugin/mcp.json"
 }

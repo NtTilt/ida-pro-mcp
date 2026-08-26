@@ -104,12 +104,12 @@ uv run ida-pro-mcp --install
 uv run ida-pro-mcp --uninstall
 ```
 
-### Update installed NtTilt plugins
+### Update installed fl0sec plugins
 ```bash
-codex plugin marketplace upgrade nttilt --json
-codex plugin add ida-pro-mcp@nttilt --json
-claude plugin marketplace update nttilt
-claude plugin update ida-pro-mcp@nttilt --scope user
+codex plugin marketplace upgrade fl0sec --json
+codex plugin add ida-pro-mcp@fl0sec --json
+claude plugin marketplace update fl0sec
+claude plugin update ida-pro-mcp@fl0sec --scope user
 ```
 
 Verify with `codex plugin list --json` and `claude plugin list --json`, then
@@ -188,6 +188,6 @@ Lower priority:
 
 ## Git workflow
 
-- `origin` is `NtTilt/ida-pro-mcp`; push feature branches there.
+- `origin` is `Fl0sec/ida-pro-mcp`; push feature branches there.
 - `upstream` is `mrexodia/ida-pro-mcp`; fetch from it and never push to it.
 - Develop on feature branches based on `dev/local-enhancements`; do not commit directly to `main`.
