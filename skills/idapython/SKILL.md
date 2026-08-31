@@ -7,6 +7,25 @@ description: IDA Pro Python scripting for reverse engineering. Use when writing 
 
 Use modern `ida_*` modules. Avoid legacy `idc` module.
 
+## Raw Python Execution
+
+- Use native MCP tools for routine operations. Use `py_eval` for IDAPython that
+  the available tools do not expose, for compact multi-step repairs, and for
+  diagnostic probes that must execute inside the selected IDB.
+- Use `py_exec_file` for a reviewed reusable script when inline `py_eval` would
+  be unwieldy. Both tools require the MCP server to start with `--unsafe`.
+- Always target the intended database/session explicitly. Prefer
+  `force_headless` when raw Python availability must not depend on an adopted
+  GUI server.
+- Start with a read-only probe, validate addresses and existing objects, then
+  perform the smallest mutation. Reanalyze, decompile, inspect the result, and
+  save the IDB after successful verification.
+- Capture and report `result`, `stdout`, and `stderr`; correct script/API errors
+  instead of silently switching execution paths.
+- If `py_eval`/`py_exec_file` is not exposed, state that the server lacks
+  `--unsafe`. Do not manipulate the IDA GUI as a fallback unless the user
+  explicitly requests GUI automation.
+
 ## MSVC RTTI and Vtables
 
 For PE/MSVC RTTI work, read `docs/rtti.md` and use the native `rtti_*` MCP tools
