@@ -1,6 +1,6 @@
 ---
 name: idapython
-description: IDA Pro Python scripting for reverse engineering. Use when writing IDAPython scripts, analyzing binaries, working with IDA's API for disassembly, decompilation (Hex-Rays), type systems, cross-references, functions, segments, or any IDA database manipulation. Covers ida_* modules (50+), idautils iterators, and common patterns.
+description: IDA Pro reverse-engineering conventions for any IDA MCP or IDAPython session: which typed MCP tool fits a given task, when raw py_eval is justified instead, modern ida_* module usage, RTTI and vtable recovery, cross-reference analysis, types, and Hex-Rays. Load this before the first IDA action in any session that opens, reads, annotates, or patches an IDB, including sessions that only use typed MCP tools and write no Python at all, since it defines the tool-versus-py_eval boundary and the ida_* over idc convention. Use whenever the user mentions IDA, IDB, .i64, disassembly, decompilation, Hex-Rays, or reversing a binary, crackme, malware, firmware, or CTF target, even if they never mention Python or scripting.
 ---
 
 # IDAPython
@@ -9,9 +9,16 @@ Use modern `ida_*` modules. Avoid legacy `idc` module.
 
 ## Raw Python Execution
 
-- Use native MCP tools for routine operations. Use `py_eval` for IDAPython that
-  the available tools do not expose, for compact multi-step repairs, and for
-  diagnostic probes that must execute inside the selected IDB.
+- Prefer the typed MCP tool whenever one exists. `rename`, `set_comments`,
+  `set_type`, `declare_type`, `enum_upsert`, `get_bytes`, `patch`, `disasm`,
+  `decompile`, `xrefs_to`, `xref_query`, `find_bytes`, and `list_funcs` cover
+  most routine work. Their arguments and results are structured and each call is
+  individually reviewable, which raw Python output is not; a session that drifts
+  into doing everything through `py_eval` loses that reviewability and tends to
+  accumulate unverified database state.
+- Use `py_eval` for IDAPython the tools do not expose, for compact multi-step
+  repairs, for bulk operations over a range, and for diagnostic probes that must
+  execute inside the selected IDB.
 - Use `py_exec_file` for a reviewed reusable script when inline `py_eval` would
   be unwieldy. Both tools require the MCP server to start with `--unsafe`.
 - Always target the intended database/session explicitly. Prefer
